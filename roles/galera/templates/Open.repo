@@ -1,0 +1,5 @@
+[open]
+name=open
+baseurl=http://mirrors.163.com/centos/7.3.1611/cloud/x86_64/openstack-mitaka
+gpgcheck=0
+enabled=1

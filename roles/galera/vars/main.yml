@@ -1,0 +1,6 @@
+galera_cluster_members: "{{ groups['galera'] }}"
+galera_server_bootstrap_node: "{{ galera_cluster_members[0] }}"
+galera_server_other_node: "{{ galera_cluster_members[2] }} {{ galera_cluster_members[1] }}"
+galera_server_other1_node: "{{ galera_cluster_members[1] }}"
+galera_wsrep_sst_auth_user: ssl
+galera_wsrep_sst_auth_password: 1234

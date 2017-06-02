@@ -1,0 +1,6 @@
+- name: install mysql galera service
+  hosts: galera
+  any_errors_fatal: true
+  roles:
+      - { role: galera,tags: galera }
+      - { role: rabbitmq, tags: rabbitmq }

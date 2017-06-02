@@ -1,0 +1,39 @@
+- name: install_rabbitm
+  yum : name=rabbitmq-server state=latest
+- name: start the {{ rabbitmq_server_bootstrap_node }}
+  service: name=rabbitmq-server.service state=started enabled=yes
+  when: 
+    - inventory_hostname == rabbitmq_server_bootstrap_node
+- name: copy the erlang.cookie to other node
+  copy:
+    src: /etc/ansible/roles/rabbitmq/file/.erlang.cookie
+    dest: /var/lib/rabbitmq/.erlang.cookie
+    owner: rabbitmq
+    group: rabbitmq
+    mode: 0400
+    backup: yes
+  when: 
+    - inventory_hostname in rabbitmq_server_other_node  
+  register: copy_result
+- name: start other_node rabbitmq_service
+  service: name=rabbitmq-server.service state=started enabled=yes
+  when: copy_result|success
+  register: rabbitmq_service_status
+- name: start rabbitmq_service again when start failed
+  service: name=rabbitmq-server.service state=started enabled=yes
+  when: rabbitmq_service_status|failed
+- name: make the rabbitmq is a cluster
+  shell: rabbitmqctl stop_app;rabbitmqctl join_cluster --ram rabbit@shihy-1;rabbitmqctl start_app 
+  when:
+    - inventory_hostname in rabbitmq_server_other_node
+- name: copy the ha.sh to node
+  copy: 
+    src: /etc/ansible/roles/rabbitmq/file/ha.sh
+    dest: /tmp
+    owner: root
+    group: root
+    mode: 0700
+  run_once: true
+- name: set ha policy
+  shell: sh /tmp/ha.sh
+  run_once: true

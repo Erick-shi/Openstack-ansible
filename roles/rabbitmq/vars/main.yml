@@ -1,0 +1,3 @@
+rabbitmq_cluster_members: "{{ groups['openstack'] }}"
+rabbitmq_server_bootstrap_node: "{{ rabbitmq_cluster_members[0] }}"
+rabbitmq_server_other_node: "{{ rabbitmq_cluster_members[2] }} {{ rabbitmq_cluster_members[1] }}"

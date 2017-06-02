@@ -1,0 +1,67 @@
+#
+# These groups are read by MariaDB server.
+# Use it for options that only the server (but not clients) should see
+#
+# See the examples of server my.cnf files in /usr/share/mysql/
+#
+
+# this is read by the standalone daemon and embedded servers
+[server]
+
+# this is only for the mysqld standalone daemon
+# Settings user and group are ignored when systemd is used.
+# If you need to run mysqld under a different user or group,
+# customize your systemd unit file for mysqld/mariadb according to the
+# instructions in http://fedoraproject.org/wiki/Systemd
+[mysqld]
+datadir=/var/lib/mysql
+socket=/var/lib/mysql/mysql.sock
+log-error=/var/log/mariadb/mariadb.log
+pid-file=/var/lib/mysql/mariadb.pid
+
+
+#
+# * Galera-related settings
+#
+[galera]
+# Mandatory settings
+#wsrep_on=ON
+#wsrep_provider=
+#wsrep_cluster_address=
+#binlog_format=row
+#default_storage_engine=InnoDB
+#innodb_autoinc_lock_mode=2
+#
+# Allow server to accept connections on all interfaces.
+#
+#bind-address=0.0.0.0
+#
+# Optional setting
+#wsrep_slave_threads=1
+#innodb_flush_log_at_trx_commit=0
+
+# this is only for embedded server
+wsrep_provider=/usr/lib64/galera/libgalera_smm.so #Synchronous multi-master wsrep provider
+wsrep_cluster_address="gcomm://{{ groups['galera'][0] }},{{ groups['galera'][1] }},{{ groups['galera'][2] }}"
+wsrep_cluster_name='mariadb_cluster'
+wsrep_node_address={{ ansible_default_ipv4.address }}
+wsrep_sst_method=rsync   #replication method rsync (rsync package is installed with galerapackage).This is the fastest and recommended method, especially for large datasets since i#t copies binary data
+wsrep_sst_auth=ssl:1234  #using root user with password 1234 (set during MariaDB configuration
+binlog_format=row  #SQL logging format,Records events affecting individual table rows.
+default_storage_engine=InnoDB
+innodb_autoinc_lock_mode=2
+bind-address=0.0.0.0 
+
+
+[embedded]
+
+# This group is only read by MariaDB servers, not by MySQL.
+# If you use the same .cnf file for MySQL and MariaDB,
+# you can put MariaDB-only options here
+[mariadb]
+
+# This group is only read by MariaDB-10.1 servers.
+# If you use the same .cnf file for MariaDB of different versions,
+# use this group for options that older servers don't understand
+[mariadb-10.1]
+

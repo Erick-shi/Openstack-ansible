@@ -1,0 +1,104 @@
+- name: ensure  stop all_nodes mysql.service
+  shell: pkill -9  mariadb mysql
+  ignore_errors: True
+- name: prepare the mariadb yum
+  template: 
+    src: Open.repo
+    dest: /etc/yum.repos.d
+    owner: root
+    group: root
+    mode: '0600'
+- name: install mysql
+  yum: "name={{ item }} state=latest disable_gpg_check=yes"
+  with_items:
+    - mariadb
+    - mariadb-server
+    - python2-PyMySQL
+    - php-mysql
+    - mariadb-galera-common
+    - mariadb-galera-server
+    - galera
+    - perl-DBD-MySQL
+    - rsync
+    - socat
+    - MySQL-python
+  register: result
+#  ignore_errors: true
+- name: start all_nodes mysql.service
+  service: name="mariadb" state=started
+#  when: result.rc == 0 
+  when: result|success
+- name: Create galera users
+  mysql_user:
+    name: "{{ item.name }}"
+    host: "{{ item.host }}"
+    password: "{{ item.password }}"
+    priv: "{{ item.priv }}"
+    state: "{{ item.state }}"
+  with_items:
+    - name: "{{ galera_wsrep_sst_auth_user }}"
+      host: '%'
+      password: "{{ galera_wsrep_sst_auth_password }}"
+      priv: "*.*:USAGE"
+      state: present
+    - name: "{{ galera_wsrep_sst_auth_user }}"
+      host: 'localhost'
+      password: "{{ galera_wsrep_sst_auth_password }}"
+      priv: "*.*:USAGE"
+      state: present
+#- name: chanage password
+#  shell: mysqladmin -uroot -p password 1234
+#  mysql_user: name=galera  password=1234  priv='*.*:ALL'  host='%' state=present
+- name: stop all_nodes mysql.service  
+  shell: pkill -9  mariadb mysql
+  ignore_errors: True 
+- name: start first_mariadb
+  shell: /usr/libexec/mysqld --wsrep-new-cluster --user=root &
+  register: first_mysql_start_result
+  when:
+    - inventory_hostname == galera_server_bootstrap_node
+- name: start other  mariadb
+  service: name=mariadb state=started
+  when:
+    - inventory_hostname != galera_server_bootstrap_node
+- name: replace the confguretion
+  template: 
+    src: mariadb-server.cnf 
+    dest: /etc/my.cnf.d/
+    owner: root
+    group: root
+    mode: '0644'
+- name: ensure all node_mysql is stopped
+  service: name=mariadb state=stopped
+- name: ensure all node_mysql is killed
+  shell: pkill mariadb mysql
+  ignore_errors: True
+- name: start the first node
+  shell: /usr/libexec/mysqld --wsrep-new-cluster --user=root & 
+  register: first_mysql_start_result
+  when:
+    - inventory_hostname == galera_server_bootstrap_node
+  run_once: True
+- name: remove other mysql_dir
+  file:
+    path: /var/lib/mysql/
+    state: remove
+  when:
+    - inventory_hostname != galera_server_bootstrap_node
+  register: first_mysql_start_result
+  when: first_mysql_start_result|success
+  ignore_errors: true
+- name: create other mysql_dir
+  file: 
+    path: /var/lib/mysql/
+    state: directory
+    owner: mysql
+    group: mysql
+    mode: 751
+  when:
+    - inventory_hostname != galera_server_bootstrap_node
+  ignore_errors: true
+- name: start other mysql_service
+  service: name=mariadb state=restarted
+  when:
+    - inventory_hostname != galera_server_bootstrap_node

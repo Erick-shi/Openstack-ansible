@@ -1,0 +1,24 @@
+- hosts: galera
+  tasks: 
+   - name: ensure service is stop
+     shell: pkill -9 mysql
+     ignore_errors: true
+   - name: ensure no yum pid
+     shell: pkill -9 yum
+     ignore_errors: true
+   - name: remove all
+     yum: "name={{ item }} state=absent disable_gpg_check=yes enablerepo=open"
+     with_items:
+       - mariadb
+       - mariadb-server
+       - python2-PyMySQL
+       - php-mysql
+       - mariadb-galera-common
+       - mariadb-galera-server
+       - galera
+       - perl-DBD-MySQL
+       - rsync
+       - socat
+   - name: remove the dic
+     shell: rm -rf /var/lib/mysql /etc/my.*
+     ignore_errors: true

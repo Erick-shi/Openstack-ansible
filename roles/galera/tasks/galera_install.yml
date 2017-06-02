@@ -1,0 +1,107 @@
+- name: ensure  stop all_nodes mysql.service
+  shell: pkill -9  mysql
+  ignore_errors: True
+- name: prepare the mariadb yum
+  template: 
+    src: Open.repo
+    dest: /etc/yum.repos.d
+    owner: root
+    group: root
+    mode: '0600'
+- name: install mysql
+  shell: yum install -y mariadb-server python2-PyMySQL  mariadb-galera-common  mariadb-galera-server galera perl-DBD-MySQL rsync socat MySQL-python  mariadb-devel mariadb-libs
+#  yum: "name={{ item }} state=installed disable_gpg_check=yes enablerepo=open"
+#  with_items:
+#    - mariadb
+#    - mariadb-server
+#    - python2-PyMySQL
+#    - php-mysql
+#    - mariadb-galera-common
+#    - mariadb-galera-server
+#    - galera
+#    - perl-DBD-MySQL
+#    - rsync
+#    - socat
+#    - MySQL-python
+  register: result
+#  ignore_errors: true
+- name: start all_nodes mysql.service
+  service: name="mariadb" state=started
+#  when: result.rc == 0 
+  when: result|success
+  register: mariadb_result
+- name: Create galera users
+  mysql_user:
+    name: "{{ item.name }}"
+    host: "{{ item.host }}"
+    password: "{{ item.password }}"
+    priv: "{{ item.priv }}"
+    state: "{{ item.state }}"
+  with_items:
+    - name: "{{ galera_wsrep_sst_auth_user }}"
+      host: '%'
+      password: "{{ galera_wsrep_sst_auth_password }}"
+      priv: "*.*:USAGE"
+      state: present
+    - name: "{{ galera_wsrep_sst_auth_user }}"
+      host: 'localhost'
+      password: "{{ galera_wsrep_sst_auth_password }}"
+      priv: "*.*:USAGE"
+      state: present
+#  when: mariadb_result|result
+#- name: chanage password
+#  shell: mysqladmin -uroot -p password 1234
+#  mysql_user: name=galera  password=1234  priv='*.*:ALL'  host='%' state=present
+- name: stop all_nodes mysql.service  
+  shell: pkill -9  mariadb mysql
+  ignore_errors: True 
+- name: replace the confguretion
+  template: 
+    src: mariadb-server.cnf 
+    dest: /etc/my.cnf.d/
+    owner: root
+    group: root
+    mode: '0644'
+- name: cp the my.cnf
+  template:
+    src: my.cnf
+    dest: /etc/my.cnf
+    group: mysql
+    owner: mysql
+    mode: '0644'
+- name: ensure the firt mysql_pid is none
+  shell: pkill -9 mysql
+  when:
+    - inventory_hostname == galera_server_bootstrap_node
+- name: start first_mariadb
+  shell: /usr/libexec/mysqld --wsrep-new-cluster --user=root &
+  register: first_mysql_start_result
+  when:
+    - inventory_hostname == galera_server_bootstrap_node
+- name: wait for first_mysql start
+  pause: seconds=60
+#- name: remove other mysql_dir
+#  shell: rm -rf /var/lib/mysql/;touch /root/test123
+##  when: (ansible_all_ipv4_addresses == '10.0.0.9')
+#  when:
+#    - inventory_hostname in galera_server_other_node
+#  ignore_errors: true
+#- name: create other mysql_dir
+#  file: 
+#    path: /var/lib/mysql/
+#    state: directory
+#    owner: mysql
+#    group: mysql
+#    mode: 0751
+#  when:
+#    - inventory_hostname in galera_server_other_node
+#  ignore_errors: true
+- name: ensure other mysql_service is stop
+  shell: pkill -9 mysql
+  ignore_errors: True
+  when:
+    - inventory_hostname in galera_server_other_node 
+- name: start other mysql_service
+  service: name=mariadb state=restarted
+  when:
+    - inventory_hostname in galera_server_other_node 
