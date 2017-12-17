@@ -5,5 +5,3 @@
       - { role: galera,tags: galera }
       - { role: rabbitmq, tags: rabbitmq }
 
-123
-test
